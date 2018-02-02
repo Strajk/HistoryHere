@@ -1,0 +1,73 @@
+{
+  "name": "history-here",
+  "version": "1.0.1",
+  "description": "Browser extension that answers: 🧐 Have I seen this page already?",
+  "main": "popup.js",
+  "dependencies": {
+    "babel-plugin-emotion": "^8.0.12",
+    "date-fns": "^1.29.0",
+    "emotion": "^8.0.12",
+    "hyperapp": "^1.0.2",
+    "timeago.js": "^3.0.2"
+  },
+  "devDependencies": {
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.0.0",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.24.1",
+    "babel-plugin-transform-object-rest-spread": "^6.23.0",
+    "babel-plugin-transform-react-jsx": "^6.24.1",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-preset-env": "^1.5.2",
+    "babel-preset-latest": "^6.24.1",
+    "chrome-webstore-upload-cli": "^1.1.1",
+    "copy-webpack-plugin": "^4.0.1",
+    "dot-json": "^1.0.3",
+    "eslint": "^3.19.0",
+    "eslint-config-airbnb-base": "^11.2.0",
+    "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-react": "^7.6.1",
+    "npm-run-all": "^4.0.2",
+    "webext": "^1.9.1-with-submit.1",
+    "webpack": "^3.7.1"
+  },
+  "scripts": {
+    "build": "webpack",
+    "watch": "webpack --watch",
+    "release": "cd extension && webstore upload --auto-publish",
+    "update-version": "dot-json extension/manifest.json version $(date -u +%y.%-m.%-d.%-H%M)",
+    "format": "prettier --trailing-comma --write 'src/**/*.js'"
+  },
+  "author": "",
+  "license": "ISC",
+  "babel": {
+    "plugins": [
+      "emotion",
+      [
+        "transform-runtime",
+        {
+          "helpers": false,
+          "polyfill": false
+        }
+      ],
+      [
+        "transform-react-jsx",
+        {
+          "pragma": "h"
+        }
+      ],
+      "transform-object-rest-spread"
+    ],
+    "presets": [
+      [
+        "env",
+        {
+          "targets": {
+            "browsers": [
+              "last 3 Chrome versions"
+            ]
+          }
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+language: node_js
+node_js:
+  - 'node'
+
+deploy:
+  - provider: script
+    skip_cleanup: true
+    script: npm run build && npm run update-version && env EXTENSION_ID=obbagdpmhdfcjmdkgljofmogcdaojmpm npm run release
+    on:
+      branch: master
