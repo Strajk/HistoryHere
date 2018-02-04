@@ -88,27 +88,27 @@ const ACTIONS = {
 const view = (state, actions) => { // eslint-disable-line no-unused-vars
   const ranges = {
     today: {
-      title: 'Today',
+      title: 'Now',
       threshold: startOfToday(),
       visits: [],
     },
     7: {
-      title: 'Last 7 days',
+      title: 'Yesterday',
       threshold: subDays(startOfToday(), 7),
       visits: [],
     },
     31: {
-      title: 'Last 31 days',
+      title: '7 days ago',
       threshold: subDays(startOfToday(), 31),
       visits: [],
     },
     365: {
-      title: 'Last 365 days',
+      title: '31 days ago',
       threshold: subDays(startOfToday(), 365),
       visits: [],
     },
     earlier: {
-      title: 'Earlier',
+      title: '365 days ago',
       threshold: subDays(startOfToday(), 365 * 5), // anything even earlier is probably a bug
       visits: [],
     },
