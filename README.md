@@ -6,4 +6,6 @@ Browser extension that answers: 🧐 Have I seen this page already?
 
 <p align="center">
   <img src="./design/screen.png" />
+  <hr />
+  <img src="./design/screen.gif" />
 </p>
