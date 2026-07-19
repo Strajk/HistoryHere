@@ -1,6 +1,6 @@
 {
   "name": "history-here",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Browser extension that answers: 🧐 Have I seen this page already?",
   "main": "popup.js",
   "dependencies": {
@@ -23,6 +23,7 @@
     "eslint-plugin-import": "2.18.2",
     "eslint-plugin-react": "7.14.3",
     "npm-run-all": "4.1.5",
+    "vitest": "^4.1.10",
     "webext": "1.9.1-with-submit.1",
     "webpack": "5.108.4",
     "webpack-cli": "7.2.1"
@@ -30,6 +31,8 @@
   "scripts": {
     "build": "webpack",
     "watch": "webpack --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "release": "cd extension && webstore upload --auto-publish",
     "update-version": "dot-json extension/manifest.json version $(date -u +%y.%-m.%-d.%-H%M)",
     "format": "prettier --trailing-comma --write 'src/**/*.js'"

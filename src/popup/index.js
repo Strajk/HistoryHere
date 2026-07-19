@@ -109,29 +109,32 @@ const makeFixtures = () => {
 };
 
 const view = (state) => {
+  // Buckets are ordered newest → oldest. Each title describes the rolling
+  // window a visit falls into (a visit is placed in the first bucket whose
+  // threshold it is *after*), so the label always matches the actual range.
   const ranges = {
     today: {
-      title: 'Now',
+      title: 'Today',
       threshold: startOfToday(),
       visits: [],
     },
-    7: {
-      title: 'Yesterday',
+    week: {
+      title: 'Last 7 days',
       threshold: subDays(startOfToday(), 7),
       visits: [],
     },
-    31: {
-      title: '7 days ago',
-      threshold: subDays(startOfToday(), 31),
+    month: {
+      title: 'Last 30 days',
+      threshold: subDays(startOfToday(), 30),
       visits: [],
     },
-    365: {
-      title: '31 days ago',
+    year: {
+      title: 'Last year',
       threshold: subDays(startOfToday(), 365),
       visits: [],
     },
     earlier: {
-      title: '365 days ago',
+      title: 'Older',
       threshold: subDays(startOfToday(), 365 * 5), // anything even earlier is probably a bug
       visits: [],
     },
@@ -140,12 +143,12 @@ const view = (state) => {
   state.visits.forEach((visit) => {
     if (isAfter(visit.visitTime, ranges.today.threshold)) {
       ranges.today.visits.push(visit);
-    } else if (isAfter(visit.visitTime, ranges['7'].threshold)) {
-      ranges['7'].visits.push(visit);
-    } else if (isAfter(visit.visitTime, ranges['31'].threshold)) {
-      ranges['31'].visits.push(visit);
-    } else if (isAfter(visit.visitTime, ranges['365'].threshold)) {
-      ranges['365'].visits.push(visit);
+    } else if (isAfter(visit.visitTime, ranges.week.threshold)) {
+      ranges.week.visits.push(visit);
+    } else if (isAfter(visit.visitTime, ranges.month.threshold)) {
+      ranges.month.visits.push(visit);
+    } else if (isAfter(visit.visitTime, ranges.year.threshold)) {
+      ranges.year.visits.push(visit);
     } else {
       ranges.earlier.visits.push(visit);
     }
@@ -178,7 +181,7 @@ const view = (state) => {
           padding: 8px 12px;
           margin-top: 14px;
         `)}>
-          {['today', '7', '31', '365', 'earlier'].map((rangeKey) => {
+          {['today', 'week', 'month', 'year', 'earlier'].map((rangeKey) => {
             const range = ranges[rangeKey];
             return (
               <div key={rangeKey} class={cx('timeline-entry', css`

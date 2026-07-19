@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "HistoryHere",
   "description": "Browser extension that answers: 🧐 Have I seen this page already?",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "homepage_url": "https://github.com/Strajk/HistoryHere",
   "permissions": [
     "storage",
