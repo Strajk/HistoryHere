@@ -31,6 +31,7 @@
   "scripts": {
     "build": "webpack",
     "watch": "webpack --watch",
+    "demo": "python3 -m http.server 8321",
     "test": "vitest run",
     "test:watch": "vitest",
     "release": "cd extension && webstore upload --auto-publish",

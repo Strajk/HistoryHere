@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HistoryHere — histogram preview (throwaway)</title>
+  <!--
+    Throwaway dev preview for the visit-frequency sparkline (design TODO #1).
+    Imports the REAL src/lib/histogram.js via native ES modules so what you see
+    here is exactly what ships — no bundler, no duplicated binning logic.
+
+    Native ESM import needs http(s), not file:// — serve from the repo root:
+        pnpm demo        (alias for: python3 -m http.server 8321)
+    then open  http://localhost:8321/demo/histogram.html
+  -->
+  <style>
+    :root {
+      --hh-text: #333; --hh-surface: #FFF; --hh-bg: #FAFBFF;
+      --hh-primary: #5A88F7; --hh-muted: #999; --hh-border: #F0F2F8; --hh-line: #dbdde0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --hh-text: #E4E6EB; --hh-surface: #25262B; --hh-bg: #1A1B1E;
+        --hh-primary: #6E97F8; --hh-muted: #8A8D94; --hh-border: #33343A; --hh-line: #3A3B42;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 32px;
+      background: var(--hh-bg); color: var(--hh-text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;
+    }
+    .case { width: 320px; background: var(--hh-bg); border: 1px solid var(--hh-border); border-radius: 8px; overflow: hidden; }
+    .case > h2 { margin: 0; padding: 8px 12px; font-size: 12px; font-weight: 700; color: var(--hh-muted); background: var(--hh-surface); border-bottom: 1px solid var(--hh-border); }
+    .histogram { padding: 12px 14px 6px; background: var(--hh-surface); border-bottom: 1px solid var(--hh-border); }
+    .bars { display: flex; align-items: flex-end; gap: 2px; height: 36px; }
+    .bars > div { flex: 1 1 0; min-width: 0; align-self: flex-end; border-radius: 2px 2px 0 0; transition: opacity .12s ease; }
+    .bars > div:hover { opacity: .75; }
+    .labels { display: flex; justify-content: space-between; margin-top: 4px; color: var(--hh-muted); font-size: 10px; }
+    .empty { padding: 16px; color: var(--hh-muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import { buildHistogram } from '../src/lib/histogram.js';
+
+    const HOUR = 3600e3;
+    const DAY = 24 * HOUR;
+    const now = Date.now();
+    const rand = (n) => Math.floor(Math.random() * n);
+
+    // --- fixture scenarios -------------------------------------------------
+    const scenarios = {
+      'Dense, recent (last week)': Array.from({ length: 60 }, () => ({ visitTime: now - rand(7 * DAY) })),
+      'Spread over a year': Array.from({ length: 40 }, () => ({ visitTime: now - rand(365 * DAY) })),
+      'Bursty (two clusters)': [
+        ...Array.from({ length: 20 }, () => ({ visitTime: now - 300 * DAY - rand(10 * DAY) })),
+        ...Array.from({ length: 25 }, () => ({ visitTime: now - rand(4 * DAY) })),
+      ],
+      'Steady daily habit': Array.from({ length: 45 }, (_, i) => ({ visitTime: now - i * DAY - rand(HOUR) })),
+      'Exactly two visits': [{ visitTime: now - 200 * DAY }, { visitTime: now - 2 * HOUR }],
+    };
+
+    const fmt = (ts, opts) => new Date(ts).toLocaleString(undefined, opts);
+
+    const renderHistogram = (data) => {
+      const { bars, max, start } = data;
+      const barsHtml = bars.map((bar) => {
+        const pct = max ? (bar.count / max) * 100 : 0;
+        const height = bar.count ? Math.max(pct, 8) : 0;
+        const style = bar.count
+          ? `height:${height}%;background:var(--hh-primary)`
+          : 'height:2px;background:var(--hh-line)';
+        const title = `${fmt(bar.start)} – ${bar.count} visit${bar.count === 1 ? '' : 's'}`;
+        return `<div style="${style}" title="${title}"></div>`;
+      }).join('');
+      return `
+        <div class="histogram">
+          <div class="bars">${barsHtml}</div>
+          <div class="labels"><span>${fmt(start, { dateStyle: 'short' })}</span><span>now</span></div>
+        </div>`;
+    };
+
+    const root = document.body;
+    for (const [name, visits] of Object.entries(scenarios)) {
+      const data = buildHistogram(visits, { now });
+      const el = document.createElement('div');
+      el.className = 'case';
+      el.innerHTML = `<h2>${name} · ${data.total} visits</h2>${renderHistogram(data)}`;
+      root.appendChild(el);
+    }
+  </script>
+</body>
+</html>
