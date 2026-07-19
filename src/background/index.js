@@ -6,6 +6,17 @@ import normalizeUrl from '../lib/normalizeUrl';
 // URL; on wake it simply resets to '' and recomputes.
 let lastUrl = '';
 
+// Paint the toolbar badge in HistoryHere's primary (#5A88F7, the same accent
+// the popup uses) instead of Chrome's default gray, so the visit count reads as
+// ours at a glance. Set once at worker init — the color persists across the
+// service worker's suspend/wake cycles, and white text keeps contrast on the
+// blue. setBadgeTextColor needs Chrome 110+; ignore if unavailable on old
+// builds (the count still shows, just with the default auto text color).
+chrome.action.setBadgeBackgroundColor({ color: '#5A88F7' });
+if (chrome.action.setBadgeTextColor) {
+  chrome.action.setBadgeTextColor({ color: '#FFFFFF' });
+}
+
 // Gather every history visit whose URL normalises to the same page as `rawUrl`.
 //
 // `history.getVisits` only matches an *exact* URL, but history stores the raw

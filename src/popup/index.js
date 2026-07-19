@@ -326,9 +326,15 @@ const view = (state) => {
           padding: 8px 12px;
           margin-top: 14px;
         `)}>
-          {['today', 'week', 'month', 'year', 'earlier'].map((rangeKey) => {
-            const range = ranges[rangeKey];
-            return (
+          {['today', 'week', 'month', 'year', 'earlier']
+            // Empty buckets are pure noise — a page seen only today shouldn't
+            // render four "No visits" rows. We only reach this block when at
+            // least one visit exists, so filtering to populated buckets always
+            // leaves ≥1, and the spine/dot language stays intact.
+            .filter(rangeKey => ranges[rangeKey].visits.length)
+            .map((rangeKey) => {
+              const range = ranges[rangeKey];
+              return (
               <div key={rangeKey} class={cx('timeline-entry', css`
                 position: relative;
                 box-shadow: inset 2px 0 0 ${styles.colors.line};
@@ -355,9 +361,8 @@ const view = (state) => {
                   {range.title}
                 </div>
                 <div class="timeline-entry-data">
-                  {range.visits.length
-                    ? range.visits.map(visit => (
-                      <div key={visit.visitTime} class={cx('timeline-entry-data-point', css`
+                  {range.visits.map(visit => (
+                    <div key={visit.visitTime} class={cx('timeline-entry-data-point', css`
                         line-height: 24px;
                         padding-left: 18px;
                         position: relative;
@@ -387,17 +392,11 @@ const view = (state) => {
                           {timeago(visit.visitTime)}
                         </span>
                       </div>
-                    ))
-                    : <span class={css`
-                      line-height: 24px;
-                      padding-left: 18px;
-                      opacity: .7;
-                    `}>No visits</span>
-                  }
+                  ))}
                 </div>
               </div>
-            );
-          })}
+              );
+            })}
         </div>
       ) : (
         <div class={css`
