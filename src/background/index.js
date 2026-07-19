@@ -44,32 +44,51 @@ const collectVisits = (rawUrl, cb) => {
   });
 };
 
-const listener = () => {
-  chrome.tabs.query({
-    active: true, // Whether the tabs are active in their windows
-    currentWindow: true, // Whether the tabs are in the current window
-  }, (activetabs) => {
-    const currentTab = activetabs[0];
-    if (!currentTab || !currentTab.url) return;
-    const { url } = currentTab;
-    if (url === lastUrl) return;
-    lastUrl = url;
+// Recompute the badge + stored visits for `url`, deduped so we never scan
+// history twice for the same page.
+const refreshForUrl = (url) => {
+  if (!url || url === lastUrl) return;
+  lastUrl = url;
 
-    collectVisits(url, (visits) => {
-      chrome.action.setBadgeText({
-        text: visits.length ? String(visits.length) : '',
-      });
-      chrome.storage.local.set({ visits }, () => {
-        // Notify an open popup to refresh. When no popup is listening this
-        // rejects with "Could not establish connection" — read lastError in
-        // the callback so Chrome doesn't log it as an unchecked runtime error.
-        chrome.runtime.sendMessage({ action: 'update' }, () => {
-          void chrome.runtime.lastError;
-        });
+  collectVisits(url, (visits) => {
+    chrome.action.setBadgeText({
+      text: visits.length ? String(visits.length) : '',
+    });
+    chrome.storage.local.set({ visits }, () => {
+      // Notify an open popup to refresh. When no popup is listening this
+      // rejects with "Could not establish connection" — read lastError in
+      // the callback so Chrome doesn't log it as an unchecked runtime error.
+      chrome.runtime.sendMessage({ action: 'update' }, () => {
+        void chrome.runtime.lastError;
       });
     });
   });
 };
 
-chrome.tabs.onUpdated.addListener(listener);
-chrome.tabs.onActivated.addListener(listener);
+// Resolve the active tab's URL, then refresh. Used when we only know "the
+// active tab changed" (activation / window focus) and not which URL.
+const refreshActiveTab = () => {
+  chrome.tabs.query({
+    active: true, // Whether the tabs are active in their windows
+    currentWindow: true, // Whether the tabs are in the current window
+  }, (activetabs) => {
+    const currentTab = activetabs[0];
+    if (currentTab) refreshForUrl(currentTab.url);
+  });
+};
+
+// `tabs.onUpdated` fires many times per navigation (loading, title, favicon,
+// audible, …). We only care about the two signals that mean "this tab now
+// shows a different page whose history is worth recounting":
+//   • `changeInfo.url`    — the URL changed (normal + SPA navigations), and
+//   • `changeInfo.status === 'complete'` — the load finished, by which point
+//     Chrome has recorded the visit so `history.search` will find it.
+// Everything else is filtered out before we touch `tabs.query`/history, and
+// we skip background tabs entirely since the popup/badge track the active tab.
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!changeInfo.url && changeInfo.status !== 'complete') return;
+  if (!tab.active) return;
+  refreshForUrl(tab.url);
+});
+
+chrome.tabs.onActivated.addListener(refreshActiveTab);
