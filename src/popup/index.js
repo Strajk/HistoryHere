@@ -4,6 +4,7 @@ import { app } from 'hyperapp';
 import { format as timeago } from 'timeago.js';
 import { format, getTime, subMinutes, subDays, startOfToday, isAfter } from 'date-fns';
 import { css, cx, injectGlobal, keyframes } from '@emotion/css';
+import { buildHistogram } from '../lib/histogram';
 
 const styles = {
   width: '320px',
@@ -13,14 +14,24 @@ const styles = {
     circle: 8,
     dot: 4,
   },
+  // Colors are routed through CSS custom properties so the palette can be
+  // swapped for dark mode in one place via prefers-color-scheme (see the
+  // :root / @media block in injectGlobal below).
   colors: {
-    base: '#333',
-    white: '#FFF',
-    bg: '#FAFBFF',
-    primary: '#5A88F7',
+    base: 'var(--hh-text)',
+    surface: 'var(--hh-surface)',
+    bg: 'var(--hh-bg)',
+    primary: 'var(--hh-primary)',
+    muted: 'var(--hh-muted)',
+    border: 'var(--hh-border)',
+    line: 'var(--hh-line)',
   },
   fonts: {
-    base: "'Roboto', sans-serif;",
+    // System UI stack — no remote font fetch (keeps the popup offline-safe and
+    // avoids pinging Google Fonts on every open). Roboto stays in the list so
+    // ChromeOS/Android still render their native UI font.
+    base: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    mono: "ui-monospace, SFMono-Regular, 'Roboto Mono', Menlo, Consolas, monospace",
   },
 };
 
@@ -54,6 +65,28 @@ const noVisitsKeyframes = keyframes`
 
 // eslint-disable-next-line no-unused-expressions
 injectGlobal`
+  :root {
+    --hh-text: #333;
+    --hh-surface: #FFF;
+    --hh-bg: #FAFBFF;
+    --hh-primary: #5A88F7;
+    --hh-muted: #999;
+    --hh-border: #F0F2F8;
+    --hh-line: #dbdde0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --hh-text: #E4E6EB;
+      --hh-surface: #25262B;
+      --hh-bg: #1A1B1E;
+      --hh-primary: #6E97F8;
+      --hh-muted: #8A8D94;
+      --hh-border: #33343A;
+      --hh-line: #3A3B42;
+    }
+  }
+
   * {
     box-sizing: border-box;
     margin: 0;
@@ -66,7 +99,7 @@ injectGlobal`
     width: ${styles.width};
     background: ${styles.colors.bg};
     color: ${styles.colors.base};
-    font-family: ${styles.fonts.base}
+    font-family: ${styles.fonts.base};
     font-weight: 300;
     font-size: ${styles.sizes.fontSize};
   }
@@ -106,6 +139,69 @@ const makeFixtures = () => {
     fixture.push({ visitTime: getTime(subMinutes(now, i ** 3.3)) });
   }
   return fixture;
+};
+
+// Bar *shape* is static, so it lives in one shared class; the per-bar *data*
+// (height + colour) is the only thing that varies, so it goes on `style`. This
+// keeps one classname instead of generating ~28 per render and separates
+// "how a bar looks" from "what this bar shows".
+const barClass = css`
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: flex-end;
+  border-radius: 2px 2px 0 0;
+  transition: opacity .12s ease;
+  &:hover {
+    opacity: .75;
+  }
+`;
+
+// Anchor every bar to the baseline; give any non-empty bin a floor height so a
+// single visit is still visible next to a tall spike. Empty bins collapse to a
+// faint 2px baseline tick.
+const barStyle = (bar, max) => (bar.count
+  ? { height: `${Math.max((bar.count / max) * 100, 8)}%`, background: styles.colors.primary }
+  : { height: '2px', background: styles.colors.line });
+
+// Mini visit-frequency histogram shown above the timeline. Single series, so
+// one hue (the product primary) and no legend — the caption names it. Bars are
+// equal-width time bins from the oldest visit up to "now" (left → right), which
+// mirrors the newest-first timeline directly beneath it.
+const Histogram = ({ data }) => {
+  const { bars, max, start } = data;
+  return (
+    <div class={cx('histogram', css`
+      padding: 12px 14px 6px;
+      background: ${styles.colors.surface};
+      border-bottom: 1px solid ${styles.colors.border};
+    `)}>
+      <div class={css`
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 36px;
+      `}>
+        {bars.map((bar) => (
+          <div
+            key={bar.index}
+            class={barClass}
+            style={barStyle(bar, max)}
+            title={`${format(bar.start, 'yyyy/MM/dd HH:mm')} – ${bar.count} visit${bar.count === 1 ? '' : 's'}`}
+          />
+        ))}
+      </div>
+      <div class={css`
+        display: flex;
+        justify-content: space-between;
+        margin-top: 4px;
+        color: ${styles.colors.muted};
+        font-size: 10px;
+      `}>
+        <span>{format(start, 'yyyy/MM/dd')}</span>
+        <span>now</span>
+      </div>
+    </div>
+  );
 };
 
 const view = (state) => {
@@ -159,13 +255,13 @@ const view = (state) => {
       <header class={css`
         margin-bottom: 8px;
         padding: 8px 12px;
-        color: #999;
+        color: ${styles.colors.muted};
         font-weight: 700;
         font-size: 16px;
         text-align: center;
         line-height: 40px;
-        background: #FFF;
-        border-bottom: 1px solid #F0F2F8;
+        background: ${styles.colors.surface};
+        border-bottom: 1px solid ${styles.colors.border};
       `}>
         <strong class={css`
           color: ${styles.colors.primary};
@@ -175,6 +271,10 @@ const view = (state) => {
         {' '}
         of this page
       </header>
+
+      {state.visits.length > 1 && (
+        <Histogram data={buildHistogram(state.visits)} />
+      )}
 
       {state.visits.length ? (
         <div class={cx('timeline', css`
@@ -186,7 +286,7 @@ const view = (state) => {
             return (
               <div key={rangeKey} class={cx('timeline-entry', css`
                 position: relative;
-                box-shadow: inset 2px 0 0 #dbdde0;
+                box-shadow: inset 2px 0 0 ${styles.colors.line};
               `)}>
                 <div class={cx('timeline-entry-title', css`
                   padding: 18px 0px 8px 16px;
@@ -202,7 +302,7 @@ const view = (state) => {
                     width: ${styles.sizes.circle}px;
                     height: ${styles.sizes.circle}px;
                     border-radius: ${styles.sizes.circle}px;
-                    background-color: #fafbfc;
+                    background-color: ${styles.colors.bg};
                     border: 1px solid ${styles.colors.primary};
                     box-shadow: 0 0 0 ${styles.sizes.circle / 2}px ${styles.colors.bg};
                   }
@@ -226,11 +326,11 @@ const view = (state) => {
                           height: ${styles.sizes.dot}px;
                           border-radius: ${styles.sizes.dot}px;
                           box-shadow: 0 0 0 1px ${styles.colors.bg};
-                          background-color: #dbdde0;
+                          background-color: ${styles.colors.line};
                         }
                       `)}>
                         <span class={cx('timestamp', '_absolute', css`
-                          font-family: 'Roboto Mono', monospace;
+                          font-family: ${styles.fonts.mono};
                           font-weight: 500;
                         `)}>
                           {format(visit.visitTime, 'yyyy/MM/dd HH:mm, EEE')}
