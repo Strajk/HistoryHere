@@ -35,6 +35,19 @@ const styles = {
   },
 };
 
+// Gentle breathing pulse for the loading placeholder. Distinct from the
+// one-shot "shake" of the empty state: this loops until storage answers, so it
+// reads as "thinking", not as a verdict.
+const loadingKeyframes = keyframes`
+  0%,
+  100% {
+    opacity: .25;
+  }
+  50% {
+    opacity: .5;
+  }
+`;
+
 const noVisitsKeyframes = keyframes`
   from {
     transform: scale3d(1, 1, 1);
@@ -204,7 +217,45 @@ const Histogram = ({ data }) => {
   );
 };
 
+// Headline that actually answers "have I been here before?". Three framings
+// instead of a hard-plural "N visits": 0 → nudge that this is fresh territory
+// (the 🧐 empty state carries the rest), 1 → celebrate the first visit, n>1 →
+// the running count with a correctly pluralized noun.
+const Headline = ({ count }) => {
+  const emphasis = css`
+    color: ${styles.colors.primary};
+  `;
+  if (count === 0) {
+    return <span>Never seen this page</span>;
+  }
+  if (count === 1) {
+    return <span><strong class={emphasis}>First time</strong> here</span>;
+  }
+  return (
+    <span>
+      Seen <strong class={emphasis}>{count}</strong> time{count === 1 ? '' : 's'}
+    </span>
+  );
+};
+
 const view = (state) => {
+  // `visits === null` means storage hasn't answered yet (see `init`). We must
+  // NOT render the empty 🧐 "never seen" verdict here — on a page you *have*
+  // visited, the async storage read lands a frame later and would snap the view
+  // from a wrong answer to the real timeline. Instead show a verdict-free
+  // pulsing placeholder until we actually know. Only `[]` (storage answered,
+  // nothing stored) commits to "never seen".
+  if (state.visits === null) {
+    return (
+      <div class={css`
+        line-height: 100px;
+        font-size: 36px;
+        text-align: center;
+        animation: ${loadingKeyframes} 1.4s ease-in-out infinite;
+      `}>🧐</div>
+    );
+  }
+
   // Buckets are ordered newest → oldest. Each title describes the rolling
   // window a visit falls into (a visit is placed in the first bucket whose
   // threshold it is *after*), so the label always matches the actual range.
@@ -263,13 +314,7 @@ const view = (state) => {
         background: ${styles.colors.surface};
         border-bottom: 1px solid ${styles.colors.border};
       `}>
-        <strong class={css`
-          color: ${styles.colors.primary};
-        `}>
-          {state.visits.length} visits
-        </strong>
-        {' '}
-        of this page
+        <Headline count={state.visits.length} />
       </header>
 
       {state.visits.length > 1 && (
@@ -368,7 +413,11 @@ const view = (state) => {
 };
 
 app({
-  init: { visits: isExtension ? [] : makeFixtures() },
+  // `null` is the loading sentinel: in the extension we don't know the visit
+  // count until chrome.storage answers async, so start unknown and let the
+  // view render a verdict-free placeholder (see the null guard in `view`).
+  // Standalone/design mode has fixtures synchronously, so it never loads.
+  init: { visits: isExtension ? null : makeFixtures() },
   view,
   node: document.getElementById('app'),
   subscriptions: () => (isExtension ? [[chromeVisitsSub, { action: SetVisits }]] : []),
