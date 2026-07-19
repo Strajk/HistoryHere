@@ -1,6 +1,6 @@
 {
   "name": "history-here",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Browser extension that answers: 🧐 Have I seen this page already?",
   "main": "popup.js",
   "dependencies": {
