@@ -158,11 +158,26 @@ const makeFixtures = () => {
 // (height + colour) is the only thing that varies, so it goes on `style`. This
 // keeps one classname instead of generating ~28 per render and separates
 // "how a bar looks" from "what this bar shows".
+// One-shot "history filling in" flourish on open: each bar grows up from the
+// baseline. We animate scaleY (not height) so it composes with the inline
+// percentage heights and pins to the bottom via transform-origin — same tooling
+// as the 🧐 shake, no deps.
+const barGrowKeyframes = keyframes`
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+`;
+
 const barClass = css`
   flex: 1 1 0;
   min-width: 0;
   align-self: flex-end;
   border-radius: 2px 2px 0 0;
+  transform-origin: bottom;
+  animation: ${barGrowKeyframes} .45s ease both;
   transition: opacity .12s ease;
   &:hover {
     opacity: .75;
@@ -171,10 +186,15 @@ const barClass = css`
 
 // Anchor every bar to the baseline; give any non-empty bin a floor height so a
 // single visit is still visible next to a tall spike. Empty bins collapse to a
-// faint 2px baseline tick.
-const barStyle = (bar, max) => (bar.count
-  ? { height: `${Math.max((bar.count / max) * 100, 8)}%`, background: styles.colors.primary }
-  : { height: '2px', background: styles.colors.line });
+// faint 2px baseline tick. The per-bar animation delay staggers the grow-in
+// left → right (oldest → now, matching the reading direction) — ~1s total
+// across all bars, then still.
+const barStyle = (bar, max) => ({
+  ...(bar.count
+    ? { height: `${Math.max((bar.count / max) * 100, 8)}%`, background: styles.colors.primary }
+    : { height: '2px', background: styles.colors.line }),
+  animationDelay: `${bar.index * 40}ms`,
+});
 
 // Mini visit-frequency histogram shown above the timeline. Single series, so
 // one hue (the product primary) and no legend — the caption names it. Bars are
@@ -236,6 +256,32 @@ const Headline = ({ count }) => {
       Seen <strong class={emphasis}>{count}</strong> time{count === 1 ? '' : 's'}
     </span>
   );
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// A tiny, optional personality line under the header. Deliberately gated behind
+// only two *unambiguous* patterns so it stays a rare remark, not a nag (the
+// minimalist ethos would break if it commented on every page). Returns null —
+// meaning "say nothing" — for everything in between, and 0/1-visit pages are
+// already handled by the headline. `visits` is newest-first.
+const pageVerdict = (visits) => {
+  if (visits.length < 2) return null;
+
+  // Habit: a burst of visits in the last week reads as "a place you keep coming
+  // back to", worth acknowledging warmly.
+  const weekAgo = subDays(new Date(), 7);
+  const recent = visits.filter((v) => isAfter(v.visitTime, weekAgo)).length;
+  if (recent >= 5) return 'You come here a lot 🔁';
+
+  // Return-after-absence: the gap between this visit and the one before it is
+  // large. Computed from the gap (not "now") so it's correct whether or not the
+  // current load is already recorded. `timeago` is the same formatter the rows
+  // use, so the phrasing stays consistent.
+  const gap = visits[0].visitTime - visits[1].visitTime;
+  if (gap > 30 * DAY_MS) return `Been a while — last seen ${timeago(visits[1].visitTime)}`;
+
+  return null;
 };
 
 const view = (state) => {
@@ -301,6 +347,8 @@ const view = (state) => {
     }
   });
 
+  const verdict = pageVerdict(state.visits);
+
   return (
     <div>
       <header class={css`
@@ -316,6 +364,16 @@ const view = (state) => {
       `}>
         <Headline count={state.visits.length} />
       </header>
+
+      {verdict && (
+        <div class={css`
+          margin: -4px 12px 10px;
+          color: ${styles.colors.muted};
+          font-size: 11px;
+          line-height: 1.4;
+          text-align: center;
+        `}>{verdict}</div>
+      )}
 
       {state.visits.length > 1 && (
         <Histogram data={buildHistogram(state.visits)} />
