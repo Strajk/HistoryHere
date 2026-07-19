@@ -1,5 +1,5 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "HistoryHere",
   "description": "Browser extension that answers: 🧐 Have I seen this page already?",
   "version": "1.0.2",
@@ -7,21 +7,21 @@
   "permissions": [
     "storage",
     "history",
-    "tabs",
+    "tabs"
+  ],
+  "host_permissions": [
     "http://*/*",
     "https://*/*"
   ],
-  "browser_action": {
+  "action": {
     "default_icon": "icon.png",
     "default_title": "HistoryHere",
     "default_popup": "popup.html"
   },
   "background": {
-    "scripts": [
-      "background.js"
-    ]
+    "service_worker": "background.js"
   },
   "commands": {
-    "_execute_browser_action": {}
+    "_execute_action": {}
   }
 }

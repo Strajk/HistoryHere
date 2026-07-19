@@ -1,7 +1,8 @@
 const path = require('path');
-const CopyWebpackPlugin = require("copy-webpack-plugin"); // eslint-disable-line
+const CopyWebpackPlugin = require('copy-webpack-plugin'); // eslint-disable-line
 
 module.exports = {
+  mode: 'production',
   entry: {
     popup: './src/popup',
     background: './src/background',
@@ -12,10 +13,10 @@ module.exports = {
     filename: '[name].js',
   },
   plugins: [
-    new CopyWebpackPlugin([{ from: 'assets' }]),
+    new CopyWebpackPlugin({ patterns: [{ from: 'assets' }] }),
   ],
   module: {
-    loaders: [
+    rules: [
       {
         test: /\.js$/,
         exclude: /(node_modules)/,

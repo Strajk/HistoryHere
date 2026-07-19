@@ -4,23 +4,19 @@
   "description": "Browser extension that answers: 🧐 Have I seen this page already?",
   "main": "popup.js",
   "dependencies": {
-    "babel-plugin-emotion": "^10.0.15",
-    "date-fns": "^1.30.1",
-    "emotion": "^10.0.14",
-    "hyperapp": "^2.0.1",
-    "timeago.js": "^3.0.2"
+    "@emotion/css": "11.13.5",
+    "date-fns": "4.4.0",
+    "hyperapp": "2.0.22",
+    "hyperapp-jsx-pragma": "1.3.0",
+    "timeago.js": "4.0.2"
   },
   "devDependencies": {
-    "babel-core": "6.26.3",
-    "babel-loader": "8.0.6",
-    "babel-plugin-transform-es2015-modules-commonjs": "6.26.2",
-    "babel-plugin-transform-object-rest-spread": "6.26.0",
-    "babel-plugin-transform-react-jsx": "6.24.1",
-    "babel-plugin-transform-runtime": "6.23.0",
-    "babel-preset-env": "1.7.0",
-    "babel-preset-latest": "6.24.1",
+    "@babel/core": "8.0.1",
+    "@babel/plugin-transform-react-jsx": "8.0.1",
+    "@babel/preset-env": "8.0.2",
+    "babel-loader": "10.1.1",
     "chrome-webstore-upload-cli": "1.2.0",
-    "copy-webpack-plugin": "5.0.4",
+    "copy-webpack-plugin": "14.0.0",
     "dot-json": "1.1.0",
     "eslint": "6.1.0",
     "eslint-config-airbnb-base": "14.0.0",
@@ -28,7 +24,8 @@
     "eslint-plugin-react": "7.14.3",
     "npm-run-all": "4.1.5",
     "webext": "1.9.1-with-submit.1",
-    "webpack": "4.39.2"
+    "webpack": "5.108.4",
+    "webpack-cli": "7.2.1"
   },
   "scripts": {
     "build": "webpack",
@@ -39,33 +36,24 @@
   },
   "author": "",
   "license": "ISC",
+  "packageManager": "pnpm@10.33.4",
   "babel": {
-    "plugins": [
-      "emotion",
-      [
-        "transform-runtime",
-        {
-          "helpers": false,
-          "polyfill": false
-        }
-      ],
-      [
-        "transform-react-jsx",
-        {
-          "pragma": "h"
-        }
-      ],
-      "transform-object-rest-spread"
-    ],
     "presets": [
       [
-        "env",
+        "@babel/preset-env",
         {
           "targets": {
-            "browsers": [
-              "last 3 Chrome versions"
-            ]
+            "chrome": "110"
           }
+        }
+      ]
+    ],
+    "plugins": [
+      [
+        "@babel/plugin-transform-react-jsx",
+        {
+          "runtime": "classic",
+          "pragma": "h"
         }
       ]
     ]

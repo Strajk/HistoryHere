@@ -1,3 +1,7 @@
+// Note: in MV3 the background is a non-persistent service worker, so this
+// module-level cache is reset whenever the worker is suspended. That's fine
+// here — it's only an optimisation to skip re-querying history for the same
+// URL; on wake it simply resets to '' and recomputes.
 let lastUrl = '';
 
 const listener = () => {
@@ -14,7 +18,7 @@ const listener = () => {
       lastUrl = url;
       chrome.history.getVisits({ url }, (historyVisits) => {
         const historyVisitsDesc = historyVisits.reverse(); // newest first
-        chrome.browserAction.setBadgeText({
+        chrome.action.setBadgeText({
           text: historyVisitsDesc.length
             ? String(historyVisitsDesc.length)
             : '',

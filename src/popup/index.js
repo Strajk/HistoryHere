@@ -1,8 +1,9 @@
 // @jsx h
-import { h, app } from 'hyperapp'; // eslint-disable-line no-unused-vars
-import timeago from 'timeago.js';
+import h from 'hyperapp-jsx-pragma'; // eslint-disable-line no-unused-vars
+import { app } from 'hyperapp';
+import { format as timeago } from 'timeago.js';
 import { format, getTime, subMinutes, subDays, startOfToday, isAfter } from 'date-fns';
-import { injectGlobal, keyframes } from 'emotion';
+import { css, cx, injectGlobal, keyframes } from '@emotion/css';
 
 const styles = {
   width: '320px',
@@ -69,23 +70,45 @@ injectGlobal`
     font-weight: 300;
     font-size: ${styles.sizes.fontSize};
   }
-  
+
   .timeline-entry:first-child .timeline-entry-title {
     padding-top: 0;
   }
 `;
 
-const STATE = {
-  raw: '',
-  visits: [],
-  timeago: timeago(),
+// --- hyperapp actions & subscriptions ---
+
+// Replace the visit list with whatever the background last stored.
+const SetVisits = (state, visits) => ({ ...state, visits: visits || [] });
+
+// Subscription that keeps the popup in sync with chrome.storage: it does an
+// initial read on mount and re-reads whenever the background service worker
+// broadcasts an { action: 'update' } message.
+const chromeVisitsSub = (dispatch, { action }) => {
+  const load = () => chrome.storage.local.get('visits', (storage) => {
+    dispatch(action, storage.visits);
+  });
+  const handler = () => load();
+  chrome.runtime.onMessage.addListener(handler);
+  load();
+  return () => chrome.runtime.onMessage.removeListener(handler);
 };
 
-const ACTIONS = {
-  update: _items => _state => ({ visits: _items }), // eslint-disable-line no-unused-vars
+const isExtension = typeof chrome !== 'undefined'
+  && !!(chrome.runtime && chrome.runtime.onMessage);
+
+// When opened standalone (e.g. popup.html in a plain browser tab) there is no
+// chrome API, so seed the view with synthetic visits for debugging/design.
+const makeFixtures = () => {
+  const fixture = [];
+  const now = new Date();
+  for (let i = 0; i < 50; i += 1) {
+    fixture.push({ visitTime: getTime(subMinutes(now, i ** 3.3)) });
+  }
+  return fixture;
 };
 
-const view = (state, actions) => { // eslint-disable-line no-unused-vars
+const view = (state) => {
   const ranges = {
     today: {
       title: 'Now',
@@ -130,18 +153,18 @@ const view = (state, actions) => { // eslint-disable-line no-unused-vars
 
   return (
     <div>
-      <header css={`
+      <header class={css`
         margin-bottom: 8px;
         padding: 8px 12px;
         color: #999;
         font-weight: 700;
-        font-size: 16px
+        font-size: 16px;
         text-align: center;
         line-height: 40px;
         background: #FFF;
         border-bottom: 1px solid #F0F2F8;
       `}>
-        <strong css={`
+        <strong class={css`
           color: ${styles.colors.primary};
         `}>
           {state.visits.length} visits
@@ -150,92 +173,86 @@ const view = (state, actions) => { // eslint-disable-line no-unused-vars
         of this page
       </header>
 
-      {state.raw && <pre>{state.raw}</pre>}
-
       {state.visits.length ? (
-        <div className="timeline" css={`
+        <div class={cx('timeline', css`
           padding: 8px 12px;
           margin-top: 14px;
-        `}>
+        `)}>
           {['today', '7', '31', '365', 'earlier'].map((rangeKey) => {
             const range = ranges[rangeKey];
             return (
-                <div className="timeline-entry" css={`
-                  position: relative;
-                  box-shadow: inset 2px 0 0 #dbdde0
-                `}>
-                  <div className="timeline-entry-title" css={`
-                    padding: 18px 0px 8px 16px;
-                    font-size: 14px;
-                    color: ${styles.colors.primary};
+              <div key={rangeKey} class={cx('timeline-entry', css`
+                position: relative;
+                box-shadow: inset 2px 0 0 #dbdde0;
+              `)}>
+                <div class={cx('timeline-entry-title', css`
+                  padding: 18px 0px 8px 16px;
+                  font-size: 14px;
+                  color: ${styles.colors.primary};
 
-                    &:before {
-                      content: '';
-                      position: absolute;
-                      left: -${styles.sizes.circle / 2}px;
-                      transform: translateY(35%);
-                      display: block;
-                      width: ${styles.sizes.circle}px;
-                      height: ${styles.sizes.circle}px;
-                      border-radius: ${styles.sizes.circle}px;
-                      background-color: #fafbfc;
-                      border: 1px solid ${styles.colors.primary};
-                      box-shadow: 0 0 0 ${styles.sizes.circle / 2}px ${styles.colors.bg};
-                    }
-                  `}>
-                    {range.title}
-                  </div>
-                  <div className="timeline-entry-data" css={`
-                    /* nothing */
-                  `}>
-                    {range.visits.length
-                      ? range.visits.map(visit =>
-                          <div className="timeline-entry-data-point" css={`
-                            line-height: 24px;
-                            padding-left: 18px;
-                            position: relative;
-                            &:before {
-                              content: '';
-                              position: absolute;
-                              left: -1px;
-                              top: 10px;
-                              display: block;
-                              width: ${styles.sizes.dot}px;
-                              height: ${styles.sizes.dot}px;
-                              border-radius: ${styles.sizes.dot}px;
-                              box-shadow: 0 0 0 1px ${styles.colors.bg};
-                              background-color: #dbdde0;
-                            }
-                          `}>
-                            <span className="timestamp _absolute" css={`
-                              font-family: 'Roboto Mono', monospace;
-                              font-weight: 500;
-                            `}>
-                              {format(visit.visitTime, 'YYYY/MM/DD HH:mm, ddd')}
-                            </span>
-                            <span className="timestamp _relative" css={`
-                              margin-left: 8px;
-                              opacity: .7;
-                            `}>
-                              {state.timeago.format(visit.visitTime)}
-                            </span>
-                          </div>,
-                        )
-                      : <span css={`
-                          line-height: 24px;
-                          padding-left: 18px;
-                          opacity: .7;
-                        `}>No visits</span>
-                    }
-
-                  </div>
+                  &:before {
+                    content: '';
+                    position: absolute;
+                    left: -${styles.sizes.circle / 2}px;
+                    transform: translateY(35%);
+                    display: block;
+                    width: ${styles.sizes.circle}px;
+                    height: ${styles.sizes.circle}px;
+                    border-radius: ${styles.sizes.circle}px;
+                    background-color: #fafbfc;
+                    border: 1px solid ${styles.colors.primary};
+                    box-shadow: 0 0 0 ${styles.sizes.circle / 2}px ${styles.colors.bg};
+                  }
+                `)}>
+                  {range.title}
                 </div>
+                <div class="timeline-entry-data">
+                  {range.visits.length
+                    ? range.visits.map(visit => (
+                      <div key={visit.visitTime} class={cx('timeline-entry-data-point', css`
+                        line-height: 24px;
+                        padding-left: 18px;
+                        position: relative;
+                        &:before {
+                          content: '';
+                          position: absolute;
+                          left: -1px;
+                          top: 10px;
+                          display: block;
+                          width: ${styles.sizes.dot}px;
+                          height: ${styles.sizes.dot}px;
+                          border-radius: ${styles.sizes.dot}px;
+                          box-shadow: 0 0 0 1px ${styles.colors.bg};
+                          background-color: #dbdde0;
+                        }
+                      `)}>
+                        <span class={cx('timestamp', '_absolute', css`
+                          font-family: 'Roboto Mono', monospace;
+                          font-weight: 500;
+                        `)}>
+                          {format(visit.visitTime, 'yyyy/MM/dd HH:mm, EEE')}
+                        </span>
+                        <span class={cx('timestamp', '_relative', css`
+                          margin-left: 8px;
+                          opacity: .7;
+                        `)}>
+                          {timeago(visit.visitTime)}
+                        </span>
+                      </div>
+                    ))
+                    : <span class={css`
+                      line-height: 24px;
+                      padding-left: 18px;
+                      opacity: .7;
+                    `}>No visits</span>
+                  }
+                </div>
+              </div>
             );
-          },
-          )}
+          })}
         </div>
       ) : (
-        <div css={`
+        <div class={css`
           line-height: 100px;
           font-size: 36px;
           opacity: .7;
@@ -243,31 +260,13 @@ const view = (state, actions) => { // eslint-disable-line no-unused-vars
           animation: ${noVisitsKeyframes} 2s linear 1;
         `}>🧐</div>
       )}
-
     </div>
   );
 };
-const main = app(STATE, ACTIONS, view, document.getElementById('app'));
 
-const render = () => {
-  chrome.storage.local.get('visits', (storage) => {
-    main.update(storage.visits);
-  });
-};
-
-if (chrome.runtime.onMessage) { // Run as chrome extension
-  chrome.runtime.onMessage.addListener(render);
-  render();
-} else { // Run by itself - for debugging
-  const fixture = [];
-  const now = new Date();
-  // eslint-disable-next-line no-plusplus
-  for (let i = 0; i < 50; i++) {
-    fixture.push({
-      visitTime: getTime(subMinutes(now, i ** 3.3)),
-    });
-  }
-
-  main.update(fixture);
-}
-
+app({
+  init: { visits: isExtension ? [] : makeFixtures() },
+  view,
+  node: document.getElementById('app'),
+  subscriptions: () => (isExtension ? [[chromeVisitsSub, { action: SetVisits }]] : []),
+});
